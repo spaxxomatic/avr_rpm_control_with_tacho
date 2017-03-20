@@ -8,7 +8,7 @@
 #include <avr/eeprom.h>
 #include <avr/pgmspace.h>	
 
-#include "../lib/lcd.h"
+#include "lcd.h"
 	
 #define F_CPU    8000000      //Interner Taktgenerator auf 8MHz gestellt
                               //FUSE-BIT CKSEL2 und CKSEL3 gesetzt
