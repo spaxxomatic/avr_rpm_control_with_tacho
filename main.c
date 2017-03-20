@@ -94,7 +94,6 @@ SIGNAL(SIG_TACHO){ //interrupt handler for incoming tachometer raising edge
 
 */
 
-#define NO_OF_PHASE_STEPS 180
 SIGNAL (SIG_OVERFLOW0) //hi freq timer 10000 Hz, increments the phase counter and triggers the freq loop
 {
 	cli();
@@ -118,9 +117,10 @@ SIGNAL (SIG_OUTPUT_COMPARE0A) //phase-delay trigger handler
 }
 
 #define DEF_OCR0A 9
-#define PARAM_DELTA_THESHOLD_LOW 30 //this param is the delta between periode_ist and periode_soll. If below this param, full_throttle is mode is enabled 
+#define PARAM_DELTA_THESHOLD_LOW 30 
+//this param is the max delta between periode_ist and periode_soll. If the delta exceeds this param, the output will be 100% on (full throtle)
 
-SIGNAL (SIG_INT0) //mains zero cross detector, also the "regelschleife"
+SIGNAL (SIG_INT0) //mains zero cross detector, the "regelschleife"
 { 	
 	static int16_t delta;
 	#ifdef debug_zerocross //let the dbg LED blink to visualise interupt presence
@@ -135,15 +135,15 @@ SIGNAL (SIG_INT0) //mains zero cross detector, also the "regelschleife"
 		if (cnt >= MAX_STEPS ) cnt = 0;	
 	#endif 	
 	delta = ist_periode - soll_periode;
-	if (delta < 0){ // too fast, stop pumping energy
-	TRIAC_OFF; 
+	if (delta < 0){ // too fast, stop pumping energy 
+		TRIAC_OFF; 
 	}else{
-	// compute fill factor (trigger delay) from the deviation from expected value
+	// compute fill factor (pwm factor -> trigger delay) from the actual deviation from expected value
 	  if (delta > PARAM_DELTA_THESHOLD_LOW){ // we're far away from target, so we go full throttle
 		TRIAC_ON; //trigger triac 
-	  }	else { // we're near target, becoming more gentle now
+	  }	else { // we're near target, reduce power 
 		triac_trigger_delay = delta;
-		//set the timer, when it expires, we'll trigger the triac only when it expires
+		//set the timer 0, triac will be triggered on timer expire 
         TCNT0 = 0; //reset timer register
         OCR0A = DEF_OCR0A;
         TIMSK |= (1<<OCIE0A); // enable compare interrupt , start counter OCR0 which will trigger the triac after the timer expires
@@ -169,17 +169,7 @@ void ioinit(void)
 	 0    1    1    1   CK/64 
 	*/
 
-	//OCR1B=0x00; 
-	//OCR0A=0;  
-
-   /* tmr0 enable overflow interrupts*/
-	//TCCR0A|=(1<<WGM01);// enable TimerA CTC mode TOP = OCR0A	
-	//TCCR0B|=(1<<CS01);//set prescaler to clk/8 => ~125khz 
-
-
-	//TCCR0 = _BV (CS01); //_BV (PWM10) | _BV (PWM11) | _BV (XCOM11);
-	
-	//interrupt maske setzen 	
+	//set interrupt mask
 	//INT0 - zero cross detector
 	PCMSK |= (1<<PIND3) | (1<<PIND2);
 	MCUCR =  (1<<ISC11) | (1<<ISC10) | (1<<ISC01) | (1<<ISC00); //activate int0 and int1 on rising  edge
